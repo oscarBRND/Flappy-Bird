@@ -25,7 +25,7 @@ class Font(pygame.sprite.Sprite):
         self.score = 0
         self.highscore = 0
         self.game_font = pygame.font.Font('04B_19__.TTF', 40)
-        self.game_state = True
+        self.game_state = False
         self.update_score_surface()
         
 

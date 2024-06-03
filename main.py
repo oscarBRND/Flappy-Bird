@@ -142,7 +142,7 @@ while running:
         game.pipes.empty()
 
     screen.blit(game.font.score_surface,game.font.score_rect)
-    
+   
 
     #mettre à jour l'écran
     pygame.display.update()
