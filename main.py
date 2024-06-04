@@ -1,18 +1,6 @@
 import random
 import pygame
-import os
 from game import Game
-
-def load_high_score(filename="high_score.txt"):
-    if os.path.exists(filename):
-        with open(filename, "r") as file:
-            return int(file.read())
-    return 0
-
-def save_high_score(high_score, filename="high_score.txt"):
-    with open(filename, "w") as file:
-        file.write(str(high_score))
-
 
 def draw_floor():
     #appliquer le sol 
@@ -24,26 +12,6 @@ def draw_pipes(pipes):
         screen.blit(pipe.image, pipe.rectbottom )
         screen.blit(pipe.imagetop, pipe.recttop)
 
-def move_pipes(pipes):
-    for pipe in pipes:
-        pipe.move_pipes() 
-
-def check_collision(pipes, bird):
-    for pipe in pipes:
-        if bird.rect.colliderect(pipe.recttop) or bird.rect.colliderect(pipe.rectbottom):
-            game.font.toggle_display()
-            if game.font.score > game.font.highscore:
-                save_high_score(game.font.score, filename="high_score.txt")
-                game.font.increase_highscore(game.font.score)
-            return False
-    
-    if bird.rect.top <= -100 : 
-        game.font.toggle_display()
-        if game.font.score > game.font.highscore:
-            save_high_score(game.font.score, filename="high_score.txt")
-            game.font.increase_highscore(game.font.score)
-        return False
-    return True
 
 pygame.init()
 
@@ -65,6 +33,7 @@ background_surface = pygame.transform.scale_by(background_surface, 1)
 floor_surface = pygame.image.load('assets/Sprites/base (1).png').convert()
 floor_x_pos = 0
 floor_speed = 1
+
 #Clock
 SPAWNPIPE = pygame.USEREVENT
 pygame.time.set_timer(SPAWNPIPE,1200)
@@ -72,13 +41,12 @@ pygame.time.set_timer(SPAWNPIPE,1200)
 BIRDFLAP = pygame.USEREVENT + 1 
 pygame.time.set_timer(BIRDFLAP, 200)
 
-game_active = False
 #charger le jeu 
 game = Game()
 
 running = True
 
-game.font.increase_highscore(load_high_score(filename="high_score.txt"))
+game.score.read_high_score(filename="high_score.txt")
 
 while running:
 
@@ -89,18 +57,23 @@ while running:
             pygame.quit()
         elif event.type == pygame.KEYDOWN:
             game.pressed[event.key] = True
-            if event.key == pygame.K_SPACE:
+            #en jeu
+            if event.key == pygame.K_SPACE and game.game_state == 'Play':
                 game.player.fly() 
-            if event.key == pygame.K_SPACE and not game_active:
+            #Gameover
+            elif event.key == pygame.K_SPACE and game.game_state == 'Gameover':
+                game.mode_menu()
+            #Menu
+            elif event.key == pygame.K_SPACE and game.game_state == 'Menu':
                 game.player.rect.centery = 325
-                game_active = True
                 floor_speed = 1
-                game.font.reinit_score()
-                game.font.toggle_display()
-                game.font.increase_highscore(load_high_score(filename="high_score.txt"))
+                game_active = True
+                game.score.reinit_score()
+                game.mode_play()
+                game.score.read_high_score(filename="high_score.txt")
         elif event.type == pygame.KEYUP:
             game.pressed[event.key] = False
-        elif event.type == SPAWNPIPE and game_active:
+        elif event.type == SPAWNPIPE and game.game_state == 'Play':
             game.add_pipe(random.choice(height_pipes))
         elif event.type == BIRDFLAP:
             game.player.flapp()
@@ -115,7 +88,7 @@ while running:
     if floor_x_pos <= -1680:
         floor_x_pos = 0
 
-    if game_active:
+    if game.game_state == 'Play':
         #Bird
         game.player.rotate_bird()
         screen.blit(game.player.imgused, game.player.rect)
@@ -126,22 +99,35 @@ while running:
 
         #pipes
         draw_pipes(game.pipes)
-        move_pipes(game.pipes)
+        game.move_pipes()
 
-        game_active = check_collision(game.pipes, game.player)
-
+        #Collision
+        game.check_collision()
+ 
         #Score
-    for tube in game.pipes:
-        if tube.recttop.right < game.player.rect.left and not hasattr(tube, 'scored'):
-            game.font.increase_score()
-            tube.scored = True
+        for tube in game.pipes:
+            if tube.recttop.right < game.player.rect.left and not hasattr(tube, 'scored'):
+                game.score.increase_score()
+                tube.scored = True
 
-    if not game_active:
+
+    if game.game_state == 'Gameover':
+        screen.blit(game.gameover.image,game.gameover.rect)
         floor_speed = 0
-        screen.blit(game.font.high_score_surface,game.font.high_score_rect)
+        game.pipes.empty()
+        screen.blit(game.player.imgused, game.player.rect)
+        game.player.dead()
+        if game.player.rect.midbottom[1] < 650:
+            game.player.fall()
+        else:
+            game.player.vitesse = 0
+
+    if game.game_state == 'Menu':
+        floor_speed = 0
+        screen.blit(game.score.high_score_surface,game.score.high_score_rect)
         game.pipes.empty()
 
-    screen.blit(game.font.score_surface,game.font.score_rect)
+    screen.blit(game.score.score_surface,game.score.score_rect)
    
 
     #mettre à jour l'écran
